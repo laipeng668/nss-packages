@@ -19,6 +19,7 @@ choice
 
   config NSS_MEM_PROFILE_MEDIUM
   	bool "Use 512MB memory profile"
+  	default y if TARGET_qualcommax_ipq60xx || TARGET_qualcommax_ipq50xx
   	help
   		This allows configuring NSS for boards with 512M memory.
 
