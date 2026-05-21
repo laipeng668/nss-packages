@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=qca-nss-ecm
-PKG_RELEASE:=7
+PKG_RELEASE:=8
 
 PKG_SOURCE_URL:=https://git.codelinaro.org/clo/qsdk/oss/lklm/qca-nss-ecm.git
 PKG_SOURCE_PROTO:=git
@@ -16,7 +16,14 @@ PKG_FLAGS:=nonshared
 PKG_BUILD_FLAGS:=gc-sections lto
 
 PKG_CONFIG_DEPENDS:= \
-	CONFIG_NSS_DRV_PPPOE_ENABLE
+	CONFIG_NSS_DRV_PPPOE_ENABLE \
+	CONFIG_PACKAGE_kmod-vxlan \
+	CONFIG_PACKAGE_kmod-pppoe \
+	CONFIG_PACKAGE_kmod-pptp \
+	CONFIG_PACKAGE_kmod-pppol2tp \
+	CONFIG_PACKAGE_kmod-gre \
+	CONFIG_PACKAGE_kmod-gre6 \
+	CONFIG_NSS_FIRMWARE_VERSION_12_5
 
 include $(INCLUDE_DIR)/kernel.mk
 include $(INCLUDE_DIR)/package.mk
@@ -36,10 +43,12 @@ define KernelPackage/qca-nss-ecm
 		   +PACKAGE_kmod-bonding:kmod-bonding \
 		   +PACKAGE_kmod-vxlan:kmod-vxlan \
 		   +PACKAGE_kmod-nat46:kmod-nat46 \
+		   +PACKAGE_kmod-gre:kmod-gre \
+		   +PACKAGE_kmod-gre6:kmod-gre6 \
 		   +PACKAGE_kmod-ppp:kmod-ppp \
 		   +PACKAGE_kmod-pppoe:kmod-pppoe \
-		   +PACKAGE_kmod-pppoe:kmod-pptp \
-		   +PACKAGE_kmod-pppoe:kmod-pppol2tp
+		   +PACKAGE_kmod-pptp:kmod-pptp \
+		   +PACKAGE_kmod-pppol2tp:kmod-pppol2tp
   TITLE:=QCA NSS Enhanced Connection Manager (ECM)
   FILES:=$(PKG_BUILD_DIR)/ecm.ko
   KCONFIG:=CONFIG_NF_CONNTRACK_DSCPREMARK_EXT=y
@@ -88,7 +97,7 @@ ifneq ($(CONFIG_IPV6),)
 ECM_MAKE_OPTS+=ECM_IPV6_ENABLE=y
 endif
 
-# Disable ECM Bridge VLAN Filtering support when global kernel config is disabled
+# Disable ECM Bridge VLAN Filtering support when global kernel config is disabled.
 ifneq ($(CONFIG_BRIDGE_VLAN_FILTERING),)
 ECM_MAKE_OPTS+=ECM_BRIDGE_VLAN_FILTERING_ENABLE=y
 endif
@@ -101,7 +110,7 @@ ifneq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-ovpn-link),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_OVPN_ENABLE=y
 endif
 
-ifeq ($(CONFIG_PACKAGE_kmod-vxlan),y)
+ifneq ($(CONFIG_PACKAGE_kmod-vxlan),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_VXLAN_ENABLE=y
 endif
 
@@ -127,14 +136,23 @@ ifneq ($(CONFIG_PACKAGE_kmod-ipsec),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_IPSEC_ENABLE=y
 endif
 
-ifneq ($(CONFIG_PACKAGE_kmod-pppoe),)
-ECM_MAKE_OPTS+=ECM_INTERFACE_PPPOE_ENABLE=y \
-			   ECM_INTERFACE_PPTP_ENABLE=y \
-			   ECM_INTERFACE_PPP_ENABLE=y
+# PPP core support is required by PPPoE, PPTP and PPPoL2TP.
+ifneq ($(CONFIG_PACKAGE_kmod-pppoe)$(CONFIG_PACKAGE_kmod-pptp)$(CONFIG_PACKAGE_kmod-pppol2tp),)
+ECM_MAKE_OPTS+=ECM_INTERFACE_PPP_ENABLE=y
 else
-ECM_MAKE_OPTS+=ECM_INTERFACE_PPPOE_ENABLE=n \
-			   ECM_INTERFACE_PPTP_ENABLE=n \
-			   ECM_INTERFACE_PPP_ENABLE=n
+ECM_MAKE_OPTS+=ECM_INTERFACE_PPP_ENABLE=n
+endif
+
+ifneq ($(CONFIG_PACKAGE_kmod-pppoe),)
+ECM_MAKE_OPTS+=ECM_INTERFACE_PPPOE_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_PPPOE_ENABLE=n
+endif
+
+ifneq ($(CONFIG_PACKAGE_kmod-pptp),)
+ECM_MAKE_OPTS+=ECM_INTERFACE_PPTP_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_PPTP_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-pppol2tp),)
@@ -143,9 +161,28 @@ else
 ECM_MAKE_OPTS+=ECM_INTERFACE_L2TPV2_ENABLE=n
 endif
 
+# Local componentize patch uses this flag to enable L2TPv2/PPTP detection helpers.
+# It is required when either PPTP or PPPoL2TP support is enabled.
+ifneq ($(CONFIG_PACKAGE_kmod-pptp)$(CONFIG_PACKAGE_kmod-pppol2tp),)
+ECM_MAKE_OPTS+=ECM_INTERFACE_L2TPV2_PPTP_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_L2TPV2_PPTP_ENABLE=n
+endif
+
+# Local componentize patch uses this flag to enable GRE protocol detection.
+# PPTP uses GRE, so keep GRE detection enabled when PPTP or GRE modules are selected.
+ifneq ($(CONFIG_PACKAGE_kmod-gre)$(CONFIG_PACKAGE_kmod-gre6)$(CONFIG_PACKAGE_kmod-pptp),)
+ECM_MAKE_OPTS+=ECM_INTERFACE_GRE_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_GRE_ENABLE=n
+endif
+
 ifneq ($(CONFIG_PACKAGE_kmod-gre)$(CONFIG_PACKAGE_kmod-gre6),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_GRE_TAP_ENABLE=y \
 			   ECM_INTERFACE_GRE_TUN_ENABLE=y
+else
+ECM_MAKE_OPTS+=ECM_INTERFACE_GRE_TAP_ENABLE=n \
+			   ECM_INTERFACE_GRE_TUN_ENABLE=n
 endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-sit),)

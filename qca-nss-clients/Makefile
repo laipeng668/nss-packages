@@ -617,6 +617,7 @@ define KernelPackage/qca-nss-drv-wifi-meshmgr
   SUBMENU:=Network Devices
   TITLE:=NSS WiFi-Mesh manager for QCA NSS driver
   DEPENDS:=@TARGET_qualcommax \
+	   @NSS_FIRMWARE_VERSION_11_4 \
 	   +kmod-qca-nss-drv \
 	   +@NSS_DRV_WIFI_MESH_ENABLE
   FILES:=$(PKG_BUILD_DIR)/wifi_meshmgr/qca-nss-wifi-meshmgr.ko

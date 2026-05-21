@@ -261,6 +261,7 @@ config NSS_DRV_WIFI_MESH_ENABLE
 	bool
 	default n
 	depends on NSS_DRV_WIFIOFFLOAD_ENABLE
+	depends on NSS_FIRMWARE_VERSION_11_4
 	prompt "Enable WIFI MESH"
 
 config NSS_DRV_WIFI_LEGACY_ENABLE
