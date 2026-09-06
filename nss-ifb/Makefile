@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=nss-ifb
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -18,7 +18,7 @@ define KernelPackage/nss-ifb
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=NSS IFB Interface
-  DEPENDS:=@TARGET_qualcommax +kmod-qca-nss-drv
+  DEPENDS:=@TARGET_qualcommax +kmod-qca-nss-drv +@NSS_DRV_VIRT_IF_ENABLE
   FILES:=$(PKG_BUILD_DIR)/nss-ifb.ko
   KCONFIG:=
 endef

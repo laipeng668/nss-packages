@@ -179,7 +179,10 @@ config NSS_DRV_RMNET_ENABLE
 	bool
 	default n
 	prompt "Enable RMNET"
-	depends on TARGET_qualcommax_ipq807x || TARGET_qualcommax_ipq50xx
+	depends on (TARGET_qualcommax_ipq807x && NSS_FIRMWARE_VERSION_11_4) || TARGET_qualcommax_ipq50xx
+	help
+		RMNET offload on IPQ807x requires NSS firmware 11.4.
+		It is not available on IPQ60xx.
 
 config NSS_DRV_SHAPER_ENABLE
 	bool
@@ -261,6 +264,7 @@ config NSS_DRV_WIFI_MESH_ENABLE
 	bool
 	default n
 	depends on NSS_DRV_WIFIOFFLOAD_ENABLE
+	depends on NSS_FIRMWARE_VERSION_11_4
 	prompt "Enable WIFI MESH"
 
 config NSS_DRV_WIFI_LEGACY_ENABLE

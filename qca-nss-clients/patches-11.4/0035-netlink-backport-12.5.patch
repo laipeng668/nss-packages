@@ -3,7 +3,7 @@
 @@ -22,6 +22,7 @@ ccflags-y += -DCONFIG_NSS_NLLSO_RX=$(str
  ccflags-y += -DCONFIG_NSS_NLMAP_T=$(strip $(if $(filter $(map-t), y), 1 , 0))
  ccflags-y += -DCONFIG_NSS_NLPPPOE=$(strip $(if $(filter $(pppoe), y), 1 , 0))
- ccflags-y += -DCONFIG_NSS_NLL2TPV2=$(strip $(if $(filter $(l2tp), y), 1 , 0))
+ ccflags-y += -DCONFIG_NSS_NLL2TPV2=$(strip $(if $(filter $(l2tpv2), y), 1 , 0))
 +ccflags-y += -DCONFIG_NSS_NLQRFS=$(strip $(if $(filter $(CONFIG_NSS_NLQRFS), y), 1 , 0))
  ccflags-y += -DCONFIG_NSS_NLPPTP=$(strip $(if $(filter $(pptp), y), 1 , 0))
  ccflags-y += -DCONFIG_NSS_NLCAPWAP=${CAPWAP_ENABLED}

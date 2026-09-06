@@ -24,7 +24,7 @@
 +ccflags-y += -DCONFIG_NSS_NLLSO_RX=$(strip $(if $(filter $(CONFIG_NSS_NLLSO_RX), y), 1 , 0))
 +ccflags-y += -DCONFIG_NSS_NLMAP_T=$(strip $(if $(filter $(map-t), y), 1 , 0))
 +ccflags-y += -DCONFIG_NSS_NLPPPOE=$(strip $(if $(filter $(pppoe), y), 1 , 0))
-+ccflags-y += -DCONFIG_NSS_NLL2TPV2=$(strip $(if $(filter $(l2tp), y), 1 , 0))
++ccflags-y += -DCONFIG_NSS_NLL2TPV2=$(strip $(if $(filter $(l2tpv2), y), 1 , 0))
 +ccflags-y += -DCONFIG_NSS_NLPPTP=$(strip $(if $(filter $(pptp), y), 1 , 0))
  ccflags-y += -DCONFIG_NSS_NLCAPWAP=${CAPWAP_ENABLED}
  ccflags-y += -DCONFIG_NSS_NLIPSEC=${IPSEC_ENABLED}
@@ -73,7 +73,7 @@
  qca-nss-netlink-objs += nss_nlpppoe.o
 +endif
 +
-+ifneq (,$(filter $(l2tp), y))
++ifneq (,$(filter $(l2tpv2), y))
  qca-nss-netlink-objs += nss_nll2tpv2.o
 +endif
 +

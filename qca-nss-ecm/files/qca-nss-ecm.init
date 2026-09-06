@@ -1,4 +1,4 @@
-#!/bin/sh  /etc/rc.common
+#!/bin/sh /etc/rc.common
 # shellcheck disable=3043,3060,2086,2034
 #
 # Copyright (c) 2014, 2019-2020 The Linux Foundation. All rights reserved.
@@ -15,11 +15,9 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-# The shebang above has an extra space intentionally to avoid having
-# openwrt build scripts automatically enable this package starting
-# at boot.
-
-START=26
+# Start after qca-nss-drv (94) and the optional Wi-Fi pbuf setup (95).
+# Wired-only boards must not depend on the Wi-Fi service to start ECM.
+START=96
 USE_PROCD=1
 
 sysctl_update() {
@@ -69,8 +67,15 @@ get_front_end_mode() {
 }
 
 disable_packet_steering() {
-  uci -q set network.globals.packet_steering=0 && uci commit network.globals.packet_steering
-  uci -q del network.globals.steering_flows    && uci commit network.globals.steering_flows
+  local changed=0
+
+  if [ "$(uci -q get network.globals.packet_steering)" != "0" ]; then
+    uci -q set network.globals.packet_steering=0 && changed=1
+  fi
+  if uci -q get network.globals.steering_flows >/dev/null; then
+    uci -q delete network.globals.steering_flows && changed=1
+  fi
+  [ "$changed" -eq 1 ] && uci commit network
 
   if [ -e "/usr/libexec/platform/packet-steering.sh" ]; then
     /usr/libexec/platform/packet-steering.sh 0
@@ -120,30 +125,30 @@ set_front_end() {
 }
 
 load_ecm() {
-  [ -d /sys/module/ecm ] || {
-    local get_front_end_mode
-    get_front_end_mode="$(get_front_end_mode)"
-    modinfo ecm | awk '/depends/{gsub(",","\n",$NF);print $NF}' | xargs -r -n 1 modprobe
-    set_front_end $get_front_end_mode
-    modprobe ecm
-    echo 1 > /sys/kernel/debug/ecm/ecm_classifier_default/accel_delay_pkts
-  }
+  local front_end_mode kernel_major conntrack_events
 
-  # shellcheck disable=1091
-  . /lib/netifd/offload/disable_offloads.sh
+  [ -d /sys/module/ecm ] && return 0
 
-  disable_offload
-
-  #Flushout stale accelerated connections if any
-  echo 1 > /sys/kernel/debug/ecm/ecm_db/defunct_all
-  echo f > /proc/net/nf_conntrack
-
-  # Set conntrack event mode to 1 for 6.1 kernel to get the conntrack events from ECM
-  local kernel_major
+  # Allocate connection event extensions before ECM starts observing traffic.
   kernel_major=$(uname -r | cut -d. -f1)
   if [ "$kernel_major" -eq 6 ]; then
+    conntrack_events=$(cat /proc/sys/net/netfilter/nf_conntrack_events)
     echo 1 > /proc/sys/net/netfilter/nf_conntrack_events
   fi
+
+  front_end_mode="$(get_front_end_mode)"
+  modinfo ecm | awk '/depends/{gsub(",","\n",$NF);print $NF}' | xargs -r -n 1 modprobe
+  set_front_end "$front_end_mode"
+  if ! modprobe ecm; then
+    [ -n "$conntrack_events" ] && echo "$conntrack_events" > /proc/sys/net/netfilter/nf_conntrack_events
+    return 1
+  fi
+
+  echo 1 > /sys/kernel/debug/ecm/ecm_classifier_default/accel_delay_pkts
+
+  # Flush stale state only when loading ECM, not when starting it again.
+  echo 1 > /sys/kernel/debug/ecm/ecm_db/defunct_all
+  echo f > /proc/net/nf_conntrack
 }
 
 unload_ecm() {
@@ -161,7 +166,7 @@ unload_ecm() {
     # Stop ECM frontends
     #
     echo 1 > /sys/kernel/debug/ecm/front_end_ipv4_stop
-    echo 1 > /sys/kernel/debug/ecm/front_end_ipv6_stop
+    [ ! -e /sys/kernel/debug/ecm/front_end_ipv6_stop ] || echo 1 > /sys/kernel/debug/ecm/front_end_ipv6_stop
 
     #
     # Defunct the connections
@@ -184,7 +189,11 @@ reload_service() {
 }
 
 start_service() {
-  load_ecm
+  load_ecm || return 1
+
+  # shellcheck disable=1091
+  . /lib/netifd/offload/disable_offloads.sh
+  disable_offload
 
   disable_packet_steering
 

@@ -73,27 +73,31 @@ define Package/nss-firmware/config
 
   choice
     prompt "Version"
-    default NSS_FIRMWARE_VERSION_11_4
+    default NSS_FIRMWARE_VERSION_12_5
 
     config NSS_FIRMWARE_VERSION_12_5
           bool "NSS Firmware 12.5 Release 210"
           help
-               This version does NOT work with NSS MESH (802.11s)
+               NSS WiFi WDS/MESH offload on IPQ807x/IPQ60xx and
+               RMNET offload on IPQ807x require firmware 11.4.
 
     config NSS_FIRMWARE_VERSION_12_2
           bool "NSS Firmware 12.2 Release 161"
           help
-               This version does NOT work with NSS MESH (802.11s)
+               NSS WiFi WDS/MESH offload on IPQ807x/IPQ60xx and
+               RMNET offload on IPQ807x require firmware 11.4.
 
     config NSS_FIRMWARE_VERSION_12_1
           bool "NSS Firmware 12.1 Release 003"
           help
-               This version does NOT work with NSS MESH (802.11s)
+               NSS WiFi WDS/MESH offload on IPQ807x/IPQ60xx and
+               RMNET offload on IPQ807x require firmware 11.4.
 
     config NSS_FIRMWARE_VERSION_11_4
           bool "NSS Firmware 11.4.0.5 Release 6"
           help
-               This version WORKS with NSS MESH (802.11s)
+               Supports NSS WiFi WDS/MESH offload on IPQ807x/IPQ60xx.
+               RMNET offload is available on IPQ807x, not IPQ60xx.
   endchoice
   endmenu
 endef

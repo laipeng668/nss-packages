@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=qca-nss-clients
-PKG_RELEASE:=8
+PKG_RELEASE:=9
 
 PKG_SOURCE_URL:=https://git.codelinaro.org/clo/qsdk/oss/lklm/nss-clients.git
 PKG_SOURCE_PROTO:=git
@@ -14,6 +14,8 @@ PKG_VERSION:=$(QSDK_VERSION).$(subst -,.,$(PKG_SOURCE_DATE))~$(PKG_SOURCE_VERSIO
 PKG_BUILD_PARALLEL:=1
 
 PKG_CONFIG_DEPENDS:=\
+	CONFIG_KERNEL_IPQ_MEM_PROFILE \
+	CONFIG_LOWMEM_FLASH \
 	CONFIG_NSS_DRV_BRIDGE_ENABLE \
 	CONFIG_NSS_DRV_C2C_ENABLE \
 	CONFIG_NSS_DRV_CAPWAP_ENABLE \
@@ -44,12 +46,44 @@ PKG_CONFIG_DEPENDS:=\
 	CONFIG_NSS_DRV_TSTAMP_ENABLE \
 	CONFIG_NSS_DRV_TUN6RD_ENABLE \
 	CONFIG_NSS_DRV_TUNIPIP6_ENABLE \
+	CONFIG_NSS_DRV_UDP_ST_ENABLE \
 	CONFIG_NSS_DRV_VLAN_ENABLE \
 	CONFIG_NSS_DRV_VXLAN_ENABLE \
 	CONFIG_NSS_DRV_WIFIOFFLOAD_ENABLE \
 	CONFIG_NSS_DRV_WIFI_MESH_ENABLE \
 	CONFIG_NSS_DRV_WIFI_LEGACY_ENABLE \
-	CONFIG_NSS_FIRMWARE_VERSION_11_4
+	CONFIG_NSS_FIRMWARE_VERSION_11_4 \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-bridge-mgr \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-capwapmgr \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-clmapmgr \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-dtlsmgr \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-eogremgr \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-gre \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-igs \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-ipsecmgr \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-ipsecmgr-klips \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-ipsecmgr-xfrm \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-l2tpv2 \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-lag-mgr \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-map-t \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-match \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-mirror \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-mscs \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-netlink \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-ovpn-link \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-ovpn-mgr \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-pppoe \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-pptp \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-profile \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-pvxlanmgr \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-qdisc \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-tlsmgr \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-tun6rd \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-tunipip6 \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-vlan-mgr \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-vxlanmgr \
+	CONFIG_PACKAGE_kmod-qca-nss-drv-wifi-meshmgr \
+	CONFIG_PACKAGE_kmod-qca-ovsmgr
 
 ifeq ($(CONFIG_NSS_FIRMWARE_VERSION_11_4),y)
 PKG_SOURCE_DATE:=2021-08-17
@@ -434,7 +468,7 @@ define KernelPackage/qca-nss-drv-netlink
 	   +kmod-qca-nss-drv \
 	   +@NSS_DRV_IPV6_ENABLE \
 	   +@NSS_DRV_WIFIOFFLOAD_ENABLE \
-	   +@NSS_DRV_UDP_ST_ENABLE:NSS_DRV_RMNET_ENABLE \
+	   +@(NSS_DRV_UDP_ST_ENABLE&&(NSS_FIRMWARE_VERSION_11_4||TARGET_qualcommax_ipq50xx)):NSS_DRV_RMNET_ENABLE \
 	   +@NSS_DRV_C2C_ENABLE:NSS_DRV_C2C_ENABLE \
 	   +PACKAGE_kmod-qca-nss-drv-capwapmgr:kmod-qca-nss-drv-capwapmgr \
 	   +PACKAGE_kmod-qca-nss-drv-dtlsmgr:kmod-qca-nss-drv-dtlsmgr \
@@ -617,6 +651,7 @@ define KernelPackage/qca-nss-drv-wifi-meshmgr
   SUBMENU:=Network Devices
   TITLE:=NSS WiFi-Mesh manager for QCA NSS driver
   DEPENDS:=@TARGET_qualcommax \
+	   @NSS_FIRMWARE_VERSION_11_4 \
 	   +kmod-qca-nss-drv \
 	   +@NSS_DRV_WIFI_MESH_ENABLE
   FILES:=$(PKG_BUILD_DIR)/wifi_meshmgr/qca-nss-wifi-meshmgr.ko
@@ -788,7 +823,9 @@ ifdef CONFIG_NSS_DRV_LSO_RX_ENABLE
 NSS_CLIENTS_MAKE_OPTS+=CONFIG_NSS_NLLSO_RX=y
 endif
 
-ifeq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),256)
+ifneq ($(CONFIG_NSS_DRV_RMNET_ENABLE),y)
+EXTRA_CFLAGS+= -DNSS_NETLINK_UDP_ST_NO_RMNET_SUPPORT
+else ifeq ($(CONFIG_KERNEL_IPQ_MEM_PROFILE),256)
 EXTRA_CFLAGS+= -DNSS_NETLINK_UDP_ST_NO_RMNET_SUPPORT
 else ifeq ($(CONFIG_LOWMEM_FLASH),y)
 EXTRA_CFLAGS+= -DNSS_NETLINK_UDP_ST_NO_RMNET_SUPPORT

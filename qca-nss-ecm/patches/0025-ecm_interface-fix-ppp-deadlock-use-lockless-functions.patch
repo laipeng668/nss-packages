@@ -18,8 +18,7 @@
  			if (channel_count != 1) {
  				DEBUG_TRACE("%px: Net device: %px PPP has %d channels - ECM cannot handle this (interface becomes Unknown type)\n",
  					    feci, dev, channel_count);
-@@ -3764,7 +3764,7 @@ identifier_update:
- 	/*
+@@ -3763,7 +3763,7 @@ identifier_update:
  	 * PPP - but what is the channel type?
  	 * First: If this is multi-link then we do not support it
  	 */

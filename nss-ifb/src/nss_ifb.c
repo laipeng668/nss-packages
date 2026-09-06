@@ -8,20 +8,19 @@
  * QCA NSS shaper.
  */
 
+#include <linux/rcupdate.h>
 #include <nss_api_if.h>
 
 #define TX_Q_LIMIT    32
 
 struct nss_ifb_dev_private {
 	struct nss_virt_if_handle *nssctx;
-	struct net_device *nss_src_dev;
-	uint32_t nss_src_if_num;
-	char nss_src_dev_name[32];
+	struct net_device __rcu *nss_src_dev;
+	int32_t nss_src_if_num;
 };
 
-char nss_dev_name_array[32] = "eth0";
-char *nss_dev_name = nss_dev_name_array;
-module_param(nss_dev_name, charp, 0644);
+static char nss_dev_name[IFNAMSIZ] = "eth0";
+module_param_string(nss_dev_name, nss_dev_name, sizeof(nss_dev_name), 0644);
 MODULE_PARM_DESC(nss_dev_name, "NSS physical interface source device name");
 
 /*
@@ -32,11 +31,22 @@ MODULE_PARM_DESC(nss_dev_name, "NSS physical interface source device name");
 static void nss_ifb_data_cb(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi)
 {
 	struct nss_ifb_dev_private *dp = netdev_priv(netdev);
+	struct net_device *src_dev;
 
-	skb->protocol = eth_type_trans(skb, dp->nss_src_dev);
+	rcu_read_lock();
+	src_dev = rcu_dereference(dp->nss_src_dev);
+	if (unlikely(!src_dev)) {
+		rcu_read_unlock();
+		DEV_STATS_INC(netdev, rx_dropped);
+		dev_kfree_skb_any(skb);
+		return;
+	}
+
+	skb->protocol = eth_type_trans(skb, src_dev);
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 
 	napi_gro_receive(napi, skb);
+	rcu_read_unlock();
 }
 
 /*
@@ -50,16 +60,12 @@ static void nss_ifb_xmit_cb(struct net_device *netdev, struct sk_buff *skb)
 	int ret;
 
 	ret = nss_virt_if_tx_buf(dp->nssctx, skb);
-	if (unlikely(ret)) {
-		pr_warn("Failed [%d] to send skb [len: %d, protocol: 0x%X] to NSS!\n",
+	if (unlikely(ret != NSS_TX_SUCCESS)) {
+		pr_warn_ratelimited("Failed [%d] to send skb [len: %d, protocol: 0x%X] to NSS!\n",
 			ret, skb->len, ntohs(skb->protocol));
+		DEV_STATS_INC(netdev, tx_dropped);
+		dev_kfree_skb_any(skb);
 	}
-}
-
-static void nss_ifb_stats64(struct net_device *dev,
-			struct rtnl_link_stats64 *stats)
-{
-
 }
 
 static int nss_ifb_dev_init(struct net_device *dev)
@@ -91,9 +97,11 @@ static void nss_ifb_dev_uninit(struct net_device *dev)
 	int ret;
 
 	nss_virt_if_xmit_callback_unregister(dp->nssctx);
+	synchronize_net();
 	pr_info("NSS IFB transmit callback unregistered\n");
 
 	ret = nss_virt_if_destroy_sync(dp->nssctx);
+	synchronize_net();
 	if (ret == NSS_TX_SUCCESS) {
 		pr_info("NSS virtual interface destroyed for dev [%s]\n", dev->name);
 	}
@@ -106,6 +114,9 @@ static void nss_ifb_dev_uninit(struct net_device *dev)
 
 static netdev_tx_t nss_ifb_xmit(struct sk_buff *skb, struct net_device *dev)
 {
+	/* Redirected ingress uses nss_ifb_xmit_cb, not ndo_start_xmit. */
+	DEV_STATS_INC(dev, tx_dropped);
+	dev_kfree_skb_any(skb);
 	return NETDEV_TX_OK;
 }
 
@@ -114,11 +125,13 @@ static int nss_ifb_close(struct net_device *dev)
 	struct nss_ifb_dev_private *dp = netdev_priv(dev);
 	struct nss_ctx_instance *nss_ctx;
 	struct net_device *src_dev;
-	uint32_t src_if_num;
+	int32_t src_if_num;
 	int ret;
 
 	nss_ctx = dp->nssctx->nss_ctx;
-	src_dev = dp->nss_src_dev;
+	src_dev = rtnl_dereference(dp->nss_src_dev);
+	if (!src_dev)
+		return 0;
 	src_if_num = dp->nss_src_if_num;
 
 	ret = nss_phys_if_set_nexthop(nss_ctx, src_if_num, NSS_ETH_RX_INTERFACE);
@@ -131,8 +144,9 @@ static int nss_ifb_close(struct net_device *dev)
 			nss_ctx, src_dev->name);
 	}
 
+	RCU_INIT_POINTER(dp->nss_src_dev, NULL);
+	synchronize_net();
 	dev_put(src_dev);
-	dp->nss_src_dev = NULL;
 	dp->nss_src_if_num = -1;
 
 	return 0;
@@ -142,7 +156,8 @@ static int nss_ifb_open(struct net_device *dev)
 {
 	struct nss_ifb_dev_private *dp = netdev_priv(dev);
 	struct net_device *src_dev;
-	uint32_t src_if_num;
+	char src_dev_name[IFNAMSIZ];
+	int32_t src_if_num;
 	uint32_t nh_if_num;
 	nss_tx_status_t nss_tx_status;
 	struct nss_ctx_instance *nss_ctx;
@@ -150,39 +165,47 @@ static int nss_ifb_open(struct net_device *dev)
 	nss_ctx = dp->nssctx->nss_ctx;
 	nh_if_num = dp->nssctx->if_num_n2h;
 
-	strcpy(dp->nss_src_dev_name, nss_dev_name);
+	kernel_param_lock(THIS_MODULE);
+	strscpy(src_dev_name, nss_dev_name, sizeof(src_dev_name));
+	kernel_param_unlock(THIS_MODULE);
 
-	src_dev = dev_get_by_name(&init_net, dp->nss_src_dev_name);
+	src_dev = dev_get_by_name(dev_net(dev), src_dev_name);
 	if (!src_dev) {
 		pr_warn("%p: Cannot find the net device [%s]\n",
-			nss_ctx, dp->nss_src_dev_name);
+			nss_ctx, src_dev_name);
 
 		return -ENODEV;
 	}
-	pr_info("%p: Found net device [%s]\n", nss_ctx, dp->nss_src_dev_name);
+	pr_info("%p: Found net device [%s]\n", nss_ctx, src_dev_name);
 
 	src_if_num = nss_cmn_get_interface_number_by_dev(src_dev);
-	if (src_if_num < 0) {
+	if (src_if_num < 0 || src_if_num >= NSS_MAX_PHYSICAL_INTERFACES) {
 		pr_warn("%p: Invalid interface number:%d\n", nss_ctx, src_if_num);
 		dev_put(src_dev);
 
 		return -ENODEV;
 	}
 	pr_info("%p: Net device [%s] has NSS intf_num [%d]\n",
-		nss_ctx, dp->nss_src_dev_name, src_if_num);
+		nss_ctx, src_dev_name, src_if_num);
+
+	/* Packets may arrive as soon as NSS acknowledges the new nexthop. */
+	dp->nss_src_if_num = src_if_num;
+	rcu_assign_pointer(dp->nss_src_dev, src_dev);
 
 	nss_tx_status = nss_phys_if_set_nexthop(nss_ctx, src_if_num, nh_if_num);
 	if (nss_tx_status != NSS_TX_SUCCESS) {
 		pr_warn("%p: Sending message failed, cannot change nexthop for [%s]\n",
-			nss_ctx, dp->nss_src_dev_name);
+			nss_ctx, src_dev_name);
+		RCU_INIT_POINTER(dp->nss_src_dev, NULL);
+		synchronize_net();
+		dev_put(src_dev);
+		dp->nss_src_if_num = -1;
+		return -EIO;
 	}
 	else {
 		pr_info("Nexthop successfully set for [%s] to [%s]\n",
-			dp->nss_src_dev_name, dev->name);
+			src_dev_name, dev->name);
 	}
-
-	dp->nss_src_dev = src_dev;
-	dp->nss_src_if_num = src_if_num;
 
 	return 0;
 }
@@ -190,7 +213,6 @@ static int nss_ifb_open(struct net_device *dev)
 static const struct net_device_ops nss_ifb_netdev_ops = {
 	.ndo_open	= nss_ifb_open,
 	.ndo_stop	= nss_ifb_close,
-	.ndo_get_stats64 = nss_ifb_stats64,
 	.ndo_start_xmit	= nss_ifb_xmit,
 	.ndo_validate_addr = eth_validate_addr,
 	.ndo_init	= nss_ifb_dev_init,
@@ -271,6 +293,8 @@ static int __init nss_ifb_init_module(void)
 	if (dev) {
 		dev->rtnl_link_ops = &nss_ifb_link_ops;
 		err = register_netdevice(dev);
+		if (err)
+			free_netdev(dev);
 	}
 	else {
 		err = -ENOMEM;

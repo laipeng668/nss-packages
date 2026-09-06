@@ -20,7 +20,7 @@ define KernelPackage/qca-nss-macsec
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=@(TARGET_qualcommax_ipq807x||TARGET_ipq60xx) \
+  DEPENDS:=@(TARGET_qualcommax_ipq807x||TARGET_qualcommax_ipq60xx) \
   				 +libc \
   				 @BROKEN
   TITLE:=Kernel driver for NSS macsec

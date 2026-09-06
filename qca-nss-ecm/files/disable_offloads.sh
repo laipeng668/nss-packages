@@ -103,18 +103,16 @@ disable_offloads() {
 disable_feature() {
   local feature="$1"
   local interface="$2"
-  local cmd
+  local feature_name="$feature"
   local current_state
 
-  current_state=$(ethtool -k $interface 2>/dev/null | awk -v feature="^$feature:" '$0 ~ feature {print $2}')
-  
-  # Only disable and log if the feature is currently enabled
-  if [ "$current_state" = "on" ]; then
-    # Construct ethtool command line
-    cmd="-K $interface $feature off"
+  # ethtool accepts "gro" for -K but reports its full name in -k output.
+  [ "$feature" = "gro" ] && feature_name="generic-receive-offload"
+  current_state=$(ethtool -k "$interface" 2>/dev/null | awk -v feature="$feature_name:" '$1 == feature && $3 != "[fixed]" {print $2}')
 
-    # Try to disable the feature
-    ethtool $cmd 1> /dev/null 2> /dev/null
+  # Only change features which are enabled and not fixed by the driver.
+  if [ "$current_state" = "on" ]; then
+    ethtool -K "$interface" "$feature" off 1> /dev/null 2> /dev/null
     log $? "Disabling feature: $feature" "($interface)"
   fi
 }
@@ -208,7 +206,7 @@ disable_offload() {
       disable_feature "rx-gro-list" "$i"
     else
       logger -p user.warn -s "[ethtool] Enabling rx-gro-list (GRO Fraglist) will break UDP related traffic. (e.g. DNS, DHCP)"
-      logger -p user.warn -s "[ethtool] Leave this feature enabled unless you know what you are doing."
+      logger -p user.warn -s "[ethtool] Keep this feature disabled unless you know what you are doing."
       logger -p user.warn -s "[ethtool] Run \`uci set ecm.general.disable_gro_list=1 && uci commit ecm && service qca-nss-ecm restart\`"
     fi
 
