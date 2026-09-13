@@ -1,0 +1,31 @@
+Subject: [PATCH] gre: retain namespace immutability on newer kernels
+
+Linux 6.15 renamed netns_local to netns_immutable. Keep GRE devices
+pinned to their namespace using the field appropriate for each kernel.
+
+--- a/gre/nss_connmgr_gre.c
++++ b/gre/nss_connmgr_gre.c
+@@ -196,7 +196,11 @@
+ 		dev->features |= NETIF_F_NETNS_LOCAL | NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA;
+ #else
+ 		dev->features |= NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
++		dev->netns_immutable = true;
++#else
+ 		dev->netns_local = true;
++#endif
+ #endif
+ 		dev->hw_features |= NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA;
+ 		return 0;
+@@ -214,7 +218,11 @@
+ #if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 10, 0)
+ 	dev->features |= NETIF_F_NETNS_LOCAL;
+ #else
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
++	dev->netns_immutable = true;
++#else
+ 	dev->netns_local = true;
++#endif
+ #endif
+ 	return 0;
+ }

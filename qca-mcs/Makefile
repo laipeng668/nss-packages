@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=qca-mcs
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_SOURCE_URL:=https://git.codelinaro.org/clo/qsdk/oss/lklm/qca-mcs.git
 PKG_SOURCE_DATE:=2024-09-04
@@ -60,7 +60,7 @@ define Build/Compile
       KBUILDPATH=$(LINUX_DIR) \
       $(PKG_MAKE_FLAGS) \
       M=$(PKG_BUILD_DIR) \
-      EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
+      CFLAGS_MODULE="$(EXTRA_CFLAGS)" \
       $(strip $(QCA_MC_SNOOPING_MAKE_OPTS)) \
       modules
 endef

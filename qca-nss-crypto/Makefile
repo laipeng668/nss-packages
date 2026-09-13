@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=qca-nss-crypto
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE_URL:=https://git.codelinaro.org/clo/qsdk/oss/lklm/nss-crypto.git
 PKG_SOURCE_PROTO:=git
@@ -69,7 +69,7 @@ endef
 define Build/Compile
 	+$(KERNEL_MAKE) \
 		M="$(PKG_BUILD_DIR)" \
-		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
+		CFLAGS_MODULE="$(EXTRA_CFLAGS)" \
 		$(strip $(MAKE_OPTS)) \
 		$(PKG_JOBS) \
 		modules

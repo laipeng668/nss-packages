@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=qca-nss-macsec
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 PKG_SOURCE_URL:=https://git.codelinaro.org/clo/qsdk/oss/lklm/nss-macsec
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_DATE:=2023-10-16
@@ -69,7 +69,7 @@ define Build/Compile
 	+$(KERNEL_MAKE) \
 		M="$(PKG_BUILD_DIR)" \
 		SoC="$(subtarget)" \
-		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
+		CFLAGS_MODULE="$(EXTRA_CFLAGS)" \
 		$(PKG_JOBS) \
 		modules
 	+$(MAKE) -C $(PKG_BUILD_DIR) $(strip $(QCA_NSS_MACSEC_CONFIG_OPTS)) $(PKG_JOBS) -f Makefile.shell

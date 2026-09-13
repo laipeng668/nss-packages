@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=qca-nss-cfi
-PKG_RELEASE:=3
+PKG_RELEASE:=4
 
 PKG_SOURCE_URL:=https://git.codelinaro.org/clo/qsdk/oss/lklm/nss-cfi.git
 PKG_SOURCE_PROTO:=git
@@ -73,7 +73,7 @@ MAKE_OPTS+= \
 define Build/Compile
 	+$(KERNEL_MAKE) \
 		M="$(PKG_BUILD_DIR)" \
-		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
+		CFLAGS_MODULE="$(EXTRA_CFLAGS)" \
 		$(strip $(MAKE_OPTS)) \
 		$(PKG_JOBS) \
 		modules

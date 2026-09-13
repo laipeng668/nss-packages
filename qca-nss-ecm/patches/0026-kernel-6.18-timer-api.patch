@@ -1,0 +1,18 @@
+Subject: [PATCH] qca-nss-ecm: support the Linux 6.18 timer API
+
+Preserve timer cancellation and callback behavior on existing kernels.
+Map the removed timer aliases to their equivalents for Linux 6.18.
+
+---
+--- a/ecm_db/ecm_db_timer.c
++++ b/ecm_db/ecm_db_timer.c
+@@ -521,5 +521,9 @@ void ecm_db_timer_exit(void)
+ 	 * as we would wait for the callback to finish and it would wait
+ 	 * indefinately for the lock to be released!
+ 	 */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
++	timer_delete_sync(&ecm_db_timer);
++#else
+ 	del_timer_sync(&ecm_db_timer);
++#endif
+ }

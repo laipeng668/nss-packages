@@ -281,9 +281,7 @@ static int __init nss_ifb_init_module(void)
 	struct net_device *dev;
 	int err;
 
-	down_write(&pernet_ops_rwsem);
-	rtnl_lock();
-	err = __rtnl_link_register(&nss_ifb_link_ops);
+	err = rtnl_link_register(&nss_ifb_link_ops);
 	if (err < 0)
 		goto out;
 
@@ -292,7 +290,7 @@ static int __init nss_ifb_init_module(void)
 
 	if (dev) {
 		dev->rtnl_link_ops = &nss_ifb_link_ops;
-		err = register_netdevice(dev);
+		err = register_netdev(dev);
 		if (err)
 			free_netdev(dev);
 	}
@@ -301,12 +299,9 @@ static int __init nss_ifb_init_module(void)
 	}
 
 	if (err)
-		__rtnl_link_unregister(&nss_ifb_link_ops);
+		rtnl_link_unregister(&nss_ifb_link_ops);
 
 out:
-	rtnl_unlock();
-	up_write(&pernet_ops_rwsem);
-
 	if (!err)
 		pr_info("NSS IFB module loaded.\n");
 	else

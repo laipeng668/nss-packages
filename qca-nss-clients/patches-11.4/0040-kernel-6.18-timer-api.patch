@@ -1,0 +1,24 @@
+Subject: [PATCH] qca-nss-clients: support the Linux 6.18 timer API
+
+Preserve timer cancellation and callback behavior on existing kernels.
+Map the removed timer aliases to their equivalents for Linux 6.18.
+
+---
+--- a/compat.h
++++ b/compat.h
+@@ -3,6 +3,15 @@
+ #define _COMPAT_H
+ 
+ #include <linux/version.h>
++#include <linux/timer.h>
++
++/* Keep the 6.12 call sites compatible with the 6.18 timer API. */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
++#define from_timer timer_container_of
++#define del_timer timer_delete
++#define del_timer_sync timer_delete_sync
++#define try_to_del_timer_sync timer_delete_sync_try
++#endif
+ 
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0)
+ #include <linux/vmalloc.h>

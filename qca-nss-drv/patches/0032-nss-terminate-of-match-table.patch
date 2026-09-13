@@ -1,0 +1,15 @@
+Subject: [PATCH] nss: terminate the OF match table
+
+Add the required zero entry so device matching and module alias
+generation stop at the end of nss_dt_ids.
+
+--- a/nss_init.c
++++ b/nss_init.c
+@@ -143,6 +143,7 @@ struct of_device_id nss_dt_ids[] = {
+ 	{ .compatible = "qcom,nss" },
+ 	{ .compatible = "qcom,nss0" },
+ 	{ .compatible = "qcom,nss1" },
++	{ },
+ };
+ MODULE_DEVICE_TABLE(of, nss_dt_ids);
+ #endif
