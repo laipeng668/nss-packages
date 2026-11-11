@@ -1,0 +1,25 @@
+# Normalize line endings in the repository.
+#
+# Source, patch and script files are stored with LF so that patches apply
+# identically on every host, regardless of the platform's autocrlf setting.
+# Binary firmware blobs must never be converted.
+*.patch   text eol=lf
+*.c       text eol=lf
+*.h       text eol=lf
+*.in      text eol=lf
+*.init    text eol=lf
+*.sh      text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.uci     text eol=lf
+*.defaults text eol=lf
+*.firewall text eol=lf
+*.hotplug text eol=lf
+*.sysctl  text eol=lf
+*.debug   text eol=lf
+Makefile  text eol=lf
+Kconfig   text eol=lf
+Config.in text eol=lf
+
+*.bin     binary
+*.ko      binary
